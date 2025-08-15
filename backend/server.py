@@ -2,13 +2,16 @@ import os
 import uuid
 import asyncio
 import smtplib
-from datetime import datetime, timezone
+import csv
+import io
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -19,8 +22,8 @@ load_dotenv()
 # Initialize FastAPI app
 app = FastAPI(
     title="Advanced Scheduled Email App",
-    description="Schedule emails with custom settings, templates, and advanced features",
-    version="2.0.0"
+    description="Schedule emails with custom settings, templates, analytics, and advanced features",
+    version="3.0.0"
 )
 
 # CORS configuration
@@ -64,8 +67,10 @@ class EmailTemplate(BaseModel):
     name: str
     subject: str
     message: str
+    category: str = "general"
     created_at: datetime
     is_default: bool = False
+    is_favorite: bool = False
 
 class ScheduleEmailRequest(BaseModel):
     scheduled_datetime: datetime = Field(..., description="When to send the email")
@@ -75,6 +80,10 @@ class ScheduleEmailRequest(BaseModel):
     message: str = Field(..., description="Email message/body")
     template_id: Optional[str] = Field(default=None, description="Email template ID")
     priority: str = Field(default="normal", description="Email priority: low, normal, high")
+    category: str = Field(default="general", description="Email category")
+    is_recurring: bool = Field(default=False, description="Is this a recurring email")
+    recurring_pattern: Optional[str] = Field(default=None, description="Recurring pattern: daily, weekly, monthly")
+    recurring_end_date: Optional[datetime] = Field(default=None, description="When to stop recurring")
 
 class ScheduledEmailResponse(BaseModel):
     id: str
@@ -85,8 +94,12 @@ class ScheduledEmailResponse(BaseModel):
     message: str
     status: str
     priority: str
+    category: str
     created_at: datetime
     sent_at: Optional[datetime] = None
+    is_recurring: bool = False
+    recurring_pattern: Optional[str] = None
+    recurring_end_date: Optional[datetime] = None
 
 class EmailCheckResult(BaseModel):
     checked_count: int
@@ -105,6 +118,23 @@ class EmailTemplateRequest(BaseModel):
     name: str
     subject: str
     message: str
+    category: str = "general"
+
+class EmailAnalytics(BaseModel):
+    total_emails: int
+    pending_emails: int
+    sent_emails: int
+    failed_emails: int
+    success_rate: float
+    emails_by_status: Dict[str, int]
+    emails_by_priority: Dict[str, int]
+    emails_by_category: Dict[str, int]
+    recent_activity: List[Dict[str, Any]]
+
+class BulkActionRequest(BaseModel):
+    email_ids: List[str]
+    action: str  # 'delete', 'change_priority', 'change_category'
+    new_value: Optional[str] = None  # For priority/category changes
 
 # Email service class
 class EmailService:
@@ -160,15 +190,48 @@ class EmailService:
             print(f"Failed to send email to {recipient}: {str(e)}")
             return False
 
+    async def create_recurring_emails(self, base_email: dict):
+        """Create recurring email instances based on pattern"""
+        if not base_email.get('is_recurring') or not base_email.get('recurring_pattern'):
+            return
+
+        pattern = base_email['recurring_pattern']
+        end_date = base_email.get('recurring_end_date')
+        current_date = base_email['scheduled_datetime']
+        
+        # Create up to 52 instances (1 year worth)
+        for i in range(1, 53):
+            if pattern == 'daily':
+                next_date = current_date + timedelta(days=i)
+            elif pattern == 'weekly':
+                next_date = current_date + timedelta(weeks=i)
+            elif pattern == 'monthly':
+                next_date = current_date + timedelta(weeks=i*4)  # Approximate monthly
+            else:
+                break
+                
+            if end_date and next_date > end_date:
+                break
+                
+            recurring_email = {
+                **base_email,
+                "id": str(uuid.uuid4()),
+                "scheduled_datetime": next_date,
+                "created_at": datetime.now(timezone.utc),
+            }
+            
+            await scheduled_emails_collection.insert_one(recurring_email)
+
 # Initialize email service
 email_service = EmailService()
 
-# Default email templates
+# Enhanced default email templates with categories
 DEFAULT_TEMPLATES = [
     {
         "id": "welcome-template",
         "name": "Welcome Email",
         "subject": "Welcome to our platform! 🎉",
+        "category": "onboarding",
         "message": """Dear {recipient_name},
 
 Welcome to our amazing platform! We're thrilled to have you on board.
@@ -189,6 +252,7 @@ The Team""",
         "id": "meeting-reminder",
         "name": "Meeting Reminder",
         "subject": "Reminder: Meeting scheduled for tomorrow",
+        "category": "business",
         "message": """Hi {recipient_name},
 
 This is a friendly reminder about our meeting scheduled for tomorrow.
@@ -211,6 +275,7 @@ Best regards,
         "id": "thank-you-note",
         "name": "Thank You Note",
         "subject": "Thank you for your time! 🙏",
+        "category": "gratitude",
         "message": """Dear {recipient_name},
 
 Thank you so much for taking the time to [specific reason - meeting, purchase, feedback, etc.].
@@ -227,6 +292,7 @@ Warm regards,
         "id": "follow-up-email",
         "name": "Follow-up Email",
         "subject": "Following up on our conversation",
+        "category": "business",
         "message": """Hi {recipient_name},
 
 I hope this email finds you well.
@@ -248,6 +314,7 @@ Best regards,
         "id": "appointment-confirmation",
         "name": "Appointment Confirmation",
         "subject": "Appointment Confirmed - [Date & Time]",
+        "category": "appointments",
         "message": """Dear {recipient_name},
 
 Your appointment has been confirmed!
@@ -275,6 +342,7 @@ Best regards,
         "id": "newsletter-template",
         "name": "Newsletter Template",
         "subject": "📧 Monthly Newsletter - [Month Year]",
+        "category": "marketing",
         "message": """Hi {recipient_name},
 
 Welcome to our monthly newsletter! Here's what's new and exciting:
@@ -311,7 +379,8 @@ async def initialize_default_templates():
             if not existing_template:
                 template_doc = {
                     **template_data,
-                    "created_at": datetime.now(timezone.utc)
+                    "created_at": datetime.now(timezone.utc),
+                    "is_favorite": False
                 }
                 await email_templates_collection.insert_one(template_doc)
                 print(f"Added default template: {template_data['name']}")
@@ -325,11 +394,74 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    return {"message": "Advanced Scheduled Email App is running", "version": "2.0.0"}
+    return {"message": "Advanced Scheduled Email App is running", "version": "3.0.0"}
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "service": "advanced-scheduled-email-api", "version": "2.0.0"}
+    return {"status": "healthy", "service": "advanced-scheduled-email-api", "version": "3.0.0"}
+
+# New Analytics Endpoint
+@app.get("/api/analytics", response_model=EmailAnalytics)
+async def get_email_analytics():
+    """Get comprehensive email analytics"""
+    try:
+        # Get all emails
+        all_emails = await scheduled_emails_collection.find({}).to_list(length=None)
+        
+        total_emails = len(all_emails)
+        pending_emails = len([e for e in all_emails if e['status'] == 'pending'])
+        sent_emails = len([e for e in all_emails if e['status'] == 'sent'])
+        failed_emails = len([e for e in all_emails if e['status'] == 'failed'])
+        
+        success_rate = (sent_emails / total_emails * 100) if total_emails > 0 else 0
+        
+        # Group by status
+        emails_by_status = {
+            'pending': pending_emails,
+            'sent': sent_emails,
+            'failed': failed_emails
+        }
+        
+        # Group by priority
+        emails_by_priority = {}
+        for email in all_emails:
+            priority = email.get('priority', 'normal')
+            emails_by_priority[priority] = emails_by_priority.get(priority, 0) + 1
+        
+        # Group by category
+        emails_by_category = {}
+        for email in all_emails:
+            category = email.get('category', 'general')
+            emails_by_category[category] = emails_by_category.get(category, 0) + 1
+        
+        # Recent activity (last 10 emails)
+        recent_emails = sorted(all_emails, key=lambda x: x['created_at'], reverse=True)[:10]
+        recent_activity = [
+            {
+                "id": email['id'],
+                "subject": email['subject'],
+                "recipient": email['recipient_email'],
+                "status": email['status'],
+                "created_at": email['created_at'].isoformat() if isinstance(email['created_at'], datetime) else email['created_at'],
+                "priority": email.get('priority', 'normal')
+            }
+            for email in recent_emails
+        ]
+        
+        return EmailAnalytics(
+            total_emails=total_emails,
+            pending_emails=pending_emails,
+            sent_emails=sent_emails,
+            failed_emails=failed_emails,
+            success_rate=round(success_rate, 2),
+            emails_by_status=emails_by_status,
+            emails_by_priority=emails_by_priority,
+            emails_by_category=emails_by_category,
+            recent_activity=recent_activity
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get analytics: {str(e)}")
 
 # Email Settings Endpoints
 @app.post("/api/email-settings")
@@ -383,7 +515,7 @@ async def get_email_settings():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get email settings: {str(e)}")
 
-# Email Templates Endpoints
+# Enhanced Email Templates Endpoints
 @app.post("/api/email-templates")
 async def create_email_template(template: EmailTemplateRequest):
     """Create a new email template"""
@@ -393,8 +525,10 @@ async def create_email_template(template: EmailTemplateRequest):
             "name": template.name,
             "subject": template.subject,
             "message": template.message,
+            "category": template.category,
             "created_at": datetime.now(timezone.utc),
-            "is_default": False
+            "is_default": False,
+            "is_favorite": False
         }
         
         await email_templates_collection.insert_one(template_doc)
@@ -404,15 +538,41 @@ async def create_email_template(template: EmailTemplateRequest):
         raise HTTPException(status_code=500, detail=f"Failed to create template: {str(e)}")
 
 @app.get("/api/email-templates", response_model=List[EmailTemplate])
-async def get_email_templates():
-    """Get all email templates"""
+async def get_email_templates(category: Optional[str] = None):
+    """Get all email templates, optionally filtered by category"""
     try:
-        cursor = email_templates_collection.find({}).sort("created_at", -1)
+        query = {}
+        if category:
+            query["category"] = category
+            
+        cursor = email_templates_collection.find(query).sort("created_at", -1)
         templates = await cursor.to_list(length=None)
         return [EmailTemplate(**template) for template in templates]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get templates: {str(e)}")
+
+@app.patch("/api/email-templates/{template_id}/favorite")
+async def toggle_template_favorite(template_id: str):
+    """Toggle template favorite status"""
+    try:
+        template = await email_templates_collection.find_one({"id": template_id})
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        new_favorite_status = not template.get("is_favorite", False)
+        
+        await email_templates_collection.update_one(
+            {"id": template_id},
+            {"$set": {"is_favorite": new_favorite_status}}
+        )
+        
+        return {"message": f"Template {'added to' if new_favorite_status else 'removed from'} favorites"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to toggle favorite: {str(e)}")
 
 @app.delete("/api/email-templates/{template_id}")
 async def delete_email_template(template_id: str):
@@ -437,10 +597,10 @@ async def initialize_default_templates_endpoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to initialize default templates: {str(e)}")
 
-# Enhanced Email Scheduling
+# Enhanced Email Scheduling with recurring and categories
 @app.post("/api/schedule-email", response_model=ScheduledEmailResponse)
 async def schedule_email(request: ScheduleEmailRequest):
-    """Schedule a new email with custom settings"""
+    """Schedule a new email with advanced features"""
     try:
         # If template_id is provided, get template data
         if request.template_id:
@@ -458,13 +618,21 @@ async def schedule_email(request: ScheduleEmailRequest):
             "subject": request.subject,
             "message": request.message,
             "priority": request.priority,
+            "category": request.category,
             "status": "pending",
             "created_at": datetime.now(timezone.utc),
-            "sent_at": None
+            "sent_at": None,
+            "is_recurring": request.is_recurring,
+            "recurring_pattern": request.recurring_pattern,
+            "recurring_end_date": request.recurring_end_date
         }
         
         # Insert into database
         await scheduled_emails_collection.insert_one(scheduled_email)
+        
+        # Create recurring instances if needed
+        if request.is_recurring:
+            await email_service.create_recurring_emails(scheduled_email)
         
         return ScheduledEmailResponse(**scheduled_email)
         
@@ -472,16 +640,126 @@ async def schedule_email(request: ScheduleEmailRequest):
         raise HTTPException(status_code=500, detail=f"Failed to schedule email: {str(e)}")
 
 @app.get("/api/scheduled-emails", response_model=List[ScheduledEmailResponse])
-async def get_scheduled_emails():
-    """Get all scheduled emails"""
+async def get_scheduled_emails(
+    status: Optional[str] = Query(None, description="Filter by status"),
+    priority: Optional[str] = Query(None, description="Filter by priority"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    search: Optional[str] = Query(None, description="Search in subject or recipient"),
+    limit: Optional[int] = Query(100, description="Limit number of results")
+):
+    """Get scheduled emails with advanced filtering"""
     try:
-        cursor = scheduled_emails_collection.find({}).sort("scheduled_datetime", 1)
+        query = {}
+        
+        if status:
+            query["status"] = status
+        if priority:
+            query["priority"] = priority
+        if category:
+            query["category"] = category
+        if search:
+            query["$or"] = [
+                {"subject": {"$regex": search, "$options": "i"}},
+                {"recipient_email": {"$regex": search, "$options": "i"}},
+                {"recipient_name": {"$regex": search, "$options": "i"}}
+            ]
+        
+        cursor = scheduled_emails_collection.find(query).sort("scheduled_datetime", 1).limit(limit)
         scheduled_emails = await cursor.to_list(length=None)
         
         return [ScheduledEmailResponse(**email) for email in scheduled_emails]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch scheduled emails: {str(e)}")
+
+# Bulk Actions Endpoint
+@app.post("/api/scheduled-emails/bulk-action")
+async def bulk_action_emails(request: BulkActionRequest):
+    """Perform bulk actions on selected emails"""
+    try:
+        if request.action == "delete":
+            result = await scheduled_emails_collection.delete_many({
+                "id": {"$in": request.email_ids},
+                "status": "pending"  # Only delete pending emails
+            })
+            return {"message": f"Deleted {result.deleted_count} emails"}
+        
+        elif request.action == "change_priority":
+            result = await scheduled_emails_collection.update_many(
+                {"id": {"$in": request.email_ids}, "status": "pending"},
+                {"$set": {"priority": request.new_value}}
+            )
+            return {"message": f"Updated priority for {result.modified_count} emails"}
+        
+        elif request.action == "change_category":
+            result = await scheduled_emails_collection.update_many(
+                {"id": {"$in": request.email_ids}},
+                {"$set": {"category": request.new_value}}
+            )
+            return {"message": f"Updated category for {result.modified_count} emails"}
+        
+        else:
+            raise HTTPException(status_code=400, detail="Invalid action")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to perform bulk action: {str(e)}")
+
+# Export Endpoint
+@app.get("/api/scheduled-emails/export")
+async def export_scheduled_emails(
+    status: Optional[str] = Query(None, description="Filter by status"),
+    format: str = Query("csv", description="Export format: csv")
+):
+    """Export scheduled emails to CSV"""
+    try:
+        query = {}
+        if status:
+            query["status"] = status
+        
+        emails = await scheduled_emails_collection.find(query).to_list(length=None)
+        
+        if format.lower() == "csv":
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow([
+                "ID", "Recipient Email", "Recipient Name", "Subject", "Status", 
+                "Priority", "Category", "Scheduled DateTime", "Created At", "Sent At"
+            ])
+            
+            # Write data
+            for email in emails:
+                writer.writerow([
+                    email['id'],
+                    email['recipient_email'],
+                    email.get('recipient_name', ''),
+                    email['subject'],
+                    email['status'],
+                    email.get('priority', 'normal'),
+                    email.get('category', 'general'),
+                    email['scheduled_datetime'].isoformat() if isinstance(email['scheduled_datetime'], datetime) else email['scheduled_datetime'],
+                    email['created_at'].isoformat() if isinstance(email['created_at'], datetime) else email['created_at'],
+                    email['sent_at'].isoformat() if email.get('sent_at') and isinstance(email['sent_at'], datetime) else email.get('sent_at', '')
+                ])
+            
+            output.seek(0)
+            
+            return StreamingResponse(
+                io.StringIO(output.getvalue()),
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=scheduled_emails.csv"}
+            )
+        
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported export format")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to export emails: {str(e)}")
 
 @app.post("/api/check-send-emails", response_model=EmailCheckResult)
 async def check_and_send_emails():
