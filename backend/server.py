@@ -163,6 +163,166 @@ class EmailService:
 # Initialize email service
 email_service = EmailService()
 
+# Default email templates
+DEFAULT_TEMPLATES = [
+    {
+        "id": "welcome-template",
+        "name": "Welcome Email",
+        "subject": "Welcome to our platform! 🎉",
+        "message": """Dear {recipient_name},
+
+Welcome to our amazing platform! We're thrilled to have you on board.
+
+Here's what you can expect:
+• Access to all premium features
+• 24/7 customer support
+• Regular updates and improvements
+• A growing community of users
+
+If you have any questions, don't hesitate to reach out to our support team.
+
+Best regards,
+The Team""",
+        "is_default": True
+    },
+    {
+        "id": "meeting-reminder",
+        "name": "Meeting Reminder",
+        "subject": "Reminder: Meeting scheduled for tomorrow",
+        "message": """Hi {recipient_name},
+
+This is a friendly reminder about our meeting scheduled for tomorrow.
+
+Meeting Details:
+• Date: Tomorrow
+• Time: [Time to be specified]
+• Location: [Location/Link to be specified]
+• Duration: Approximately 1 hour
+
+Please confirm your attendance by replying to this email.
+
+Looking forward to our discussion!
+
+Best regards,
+[Your Name]""",
+        "is_default": True
+    },
+    {
+        "id": "thank-you-note",
+        "name": "Thank You Note",
+        "subject": "Thank you for your time! 🙏",
+        "message": """Dear {recipient_name},
+
+Thank you so much for taking the time to [specific reason - meeting, purchase, feedback, etc.].
+
+Your [input/participation/business] means a lot to us, and we truly appreciate your [trust/support/feedback].
+
+We look forward to [continuing our partnership/serving you better/future opportunities].
+
+Warm regards,
+[Your Name]""",
+        "is_default": True
+    },
+    {
+        "id": "follow-up-email",
+        "name": "Follow-up Email",
+        "subject": "Following up on our conversation",
+        "message": """Hi {recipient_name},
+
+I hope this email finds you well.
+
+I wanted to follow up on our recent conversation about [topic]. As discussed, I'm attaching/including [relevant information/documents/next steps].
+
+Key points from our discussion:
+• [Point 1]
+• [Point 2]
+• [Point 3]
+
+Please let me know if you have any questions or if there's anything else I can help you with.
+
+Best regards,
+[Your Name]""",
+        "is_default": True
+    },
+    {
+        "id": "appointment-confirmation",
+        "name": "Appointment Confirmation",
+        "subject": "Appointment Confirmed - [Date & Time]",
+        "message": """Dear {recipient_name},
+
+Your appointment has been confirmed!
+
+Appointment Details:
+• Date: [Date]
+• Time: [Time]
+• Duration: [Duration]
+• Location: [Address or Virtual Link]
+• Service/Purpose: [Details]
+
+What to bring/prepare:
+• [Item 1]
+• [Item 2]
+
+If you need to reschedule or cancel, please contact us at least 24 hours in advance.
+
+We look forward to seeing you!
+
+Best regards,
+[Business Name]""",
+        "is_default": True
+    },
+    {
+        "id": "newsletter-template",
+        "name": "Newsletter Template",
+        "subject": "📧 Monthly Newsletter - [Month Year]",
+        "message": """Hi {recipient_name},
+
+Welcome to our monthly newsletter! Here's what's new and exciting:
+
+🎯 This Month's Highlights:
+• [Achievement/Update 1]
+• [Achievement/Update 2]
+• [Achievement/Update 3]
+
+📚 Latest Articles & Resources:
+• [Article 1 Title] - [Brief description]
+• [Article 2 Title] - [Brief description]
+
+🎉 Upcoming Events:
+• [Event 1] - [Date]
+• [Event 2] - [Date]
+
+💡 Pro Tip of the Month:
+[Share a useful tip or insight]
+
+Thanks for being part of our community!
+
+Best regards,
+The Team""",
+        "is_default": True
+    }
+]
+
+async def initialize_default_templates():
+    """Initialize default email templates if they don't exist"""
+    try:
+        for template_data in DEFAULT_TEMPLATES:
+            existing_template = await email_templates_collection.find_one({"id": template_data["id"]})
+            if not existing_template:
+                template_doc = {
+                    **template_data,
+                    "created_at": datetime.now(timezone.utc)
+                }
+                await email_templates_collection.insert_one(template_doc)
+                print(f"Added default template: {template_data['name']}")
+    except Exception as e:
+        print(f"Error initializing default templates: {str(e)}")
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize default templates on startup"""
+    await initialize_default_templates()
+
 @app.get("/")
 async def root():
     return {"message": "Advanced Scheduled Email App is running", "version": "2.0.0"}
