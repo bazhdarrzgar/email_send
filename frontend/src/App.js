@@ -34,8 +34,6 @@ import './App.css';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
 
-console.log('API_BASE_URL in App:', API_BASE_URL);
-
 function App() {
   // Form state
   const [selectedDate, setSelectedDate] = useState(new Date());
