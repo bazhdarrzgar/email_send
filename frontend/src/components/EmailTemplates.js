@@ -230,7 +230,28 @@ export function EmailTemplates({ onSelectTemplate }) {
 
           {/* Templates List */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Saved Templates</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Saved Templates</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={initializeDefaultTemplates}
+                disabled={loading}
+                className="gap-2"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    Add Default Templates
+                  </>
+                )}
+              </Button>
+            </div>
             
             {loading ? (
               <div className="flex items-center justify-center py-8">
