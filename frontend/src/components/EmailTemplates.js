@@ -95,6 +95,30 @@ export function EmailTemplates({ onSelectTemplate }) {
     }
   };
 
+  const initializeDefaultTemplates = async () => {
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/email-templates/initialize-defaults`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        setMessage('✅ Default templates added successfully!');
+        fetchTemplates();
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setMessage(`❌ Failed to initialize templates: ${errorData.detail}`);
+      }
+    } catch (error) {
+      setMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSelectTemplate = (template) => {
     onSelectTemplate(template);
     setOpen(false);
