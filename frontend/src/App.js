@@ -9,6 +9,7 @@ import { Separator } from './components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
 import { Textarea } from './components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
+import { Checkbox } from './components/ui/checkbox';
 import { 
   CalendarIcon, 
   Clock, 
@@ -23,13 +24,26 @@ import {
   Star,
   AlertTriangle,
   Send,
-  FileText
+  FileText,
+  BarChart3,
+  Filter,
+  Download,
+  Eye,
+  Tags,
+  Repeat,
+  Sparkles
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './components/ui/popover';
 import { format } from 'date-fns';
 import { ThemeToggle } from './components/ui/theme-toggle';
 import { EmailSettings } from './components/EmailSettings';
 import { EmailTemplates } from './components/EmailTemplates';
+import { Dashboard } from './components/Dashboard';
+import { EmailPreview } from './components/EmailPreview';
+import { EmailFilters } from './components/EmailFilters';
+import { RecurringSchedule } from './components/RecurringSchedule';
+import { useToast } from './components/ui/use-toast';
+import { Toaster } from './components/ui/toaster';
 import './App.css';
 
 const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
@@ -43,40 +57,113 @@ function App() {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailMessage, setEmailMessage] = useState('');
   const [priority, setPriority] = useState('normal');
+  const [category, setCategory] = useState('general');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  // Recurring email state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringPattern, setRecurringPattern] = useState('');
+  const [recurringEndDate, setRecurringEndDate] = useState(null);
 
   // App state
   const [scheduledEmails, setScheduledEmails] = useState([]);
+  const [filteredEmails, setFilteredEmails] = useState([]);
   const [loading, setLoading] = useState(false);
   const [checkLoading, setCheckLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('schedule');
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Filter and selection state
+  const [filters, setFilters] = useState({
+    search: '',
+    status: '',
+    priority: '',
+    category: ''
+  });
+  const [selectedEmails, setSelectedEmails] = useState([]);
+
+  const { toast } = useToast();
 
   // Fetch scheduled emails on component mount
   useEffect(() => {
     fetchScheduledEmails();
   }, []);
 
+  // Apply filters when emails or filters change
+  useEffect(() => {
+    applyFilters();
+  }, [scheduledEmails, filters]);
+
   const fetchScheduledEmails = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/scheduled-emails`);
+      const queryParams = new URLSearchParams();
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.priority) queryParams.append('priority', filters.priority);
+      if (filters.category) queryParams.append('category', filters.category);
+      if (filters.search) queryParams.append('search', filters.search);
+      
+      const response = await fetch(`${API_BASE_URL}/api/scheduled-emails?${queryParams}`);
       if (response.ok) {
         const data = await response.json();
         setScheduledEmails(data);
       }
     } catch (error) {
       console.error('Failed to fetch scheduled emails:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch scheduled emails",
+        variant: "destructive"
+      });
     }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...scheduledEmails];
+
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(email => 
+        email.subject.toLowerCase().includes(searchLower) ||
+        email.recipient_email.toLowerCase().includes(searchLower) ||
+        (email.recipient_name && email.recipient_name.toLowerCase().includes(searchLower)) ||
+        email.message.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (filters.status) {
+      filtered = filtered.filter(email => email.status === filters.status);
+    }
+
+    if (filters.priority) {
+      filtered = filtered.filter(email => email.priority === filters.priority);
+    }
+
+    if (filters.category) {
+      filtered = filtered.filter(email => email.category === filters.category);
+    }
+
+    setFilteredEmails(filtered);
   };
 
   const scheduleEmail = async () => {
     if (!selectedDate || !recipientEmail || !emailSubject || !emailMessage) {
-      setMessage('Please fill in all required fields');
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isRecurring && !recurringPattern) {
+      toast({
+        title: "Validation Error", 
+        description: "Please select a recurring pattern",
+        variant: "destructive"
+      });
       return;
     }
 
     setLoading(true);
-    setMessage('');
 
     try {
       // Combine date and time
@@ -91,7 +178,11 @@ function App() {
         subject: emailSubject,
         message: emailMessage,
         priority: priority,
-        template_id: selectedTemplate?.id || null
+        category: category,
+        template_id: selectedTemplate?.id || null,
+        is_recurring: isRecurring,
+        recurring_pattern: recurringPattern || null,
+        recurring_end_date: recurringEndDate ? recurringEndDate.toISOString() : null
       };
 
       const response = await fetch(`${API_BASE_URL}/api/schedule-email`, {
@@ -103,7 +194,10 @@ function App() {
       });
 
       if (response.ok) {
-        setMessage('✅ Email scheduled successfully!');
+        toast({
+          title: "Success!",
+          description: `Email ${isRecurring ? 'series' : ''} scheduled successfully!`
+        });
         fetchScheduledEmails();
         // Reset form
         setSelectedDate(new Date());
@@ -113,14 +207,25 @@ function App() {
         setEmailSubject('');
         setEmailMessage('');
         setPriority('normal');
+        setCategory('general');
         setSelectedTemplate(null);
-        setTimeout(() => setMessage(''), 5000);
+        setIsRecurring(false);
+        setRecurringPattern('');
+        setRecurringEndDate(null);
       } else {
         const errorData = await response.json();
-        setMessage(`❌ Failed to schedule email: ${errorData.detail}`);
+        toast({
+          title: "Error",
+          description: `Failed to schedule email: ${errorData.detail}`,
+          variant: "destructive"
+        });
       }
     } catch (error) {
-      setMessage(`❌ Error: ${error.message}`);
+      toast({
+        title: "Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -128,7 +233,6 @@ function App() {
 
   const checkAndSendEmails = async () => {
     setCheckLoading(true);
-    setMessage('');
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/check-send-emails`, {
@@ -137,17 +241,25 @@ function App() {
 
       if (response.ok) {
         const result = await response.json();
-        setMessage(
-          `✅ Checked ${result.checked_count} emails. Sent: ${result.sent_count}, Failed: ${result.failed_count}`
-        );
+        toast({
+          title: "Email Check Complete",
+          description: `Checked ${result.checked_count} emails. Sent: ${result.sent_count}, Failed: ${result.failed_count}`
+        });
         fetchScheduledEmails();
-        setTimeout(() => setMessage(''), 5000);
       } else {
         const errorData = await response.json();
-        setMessage(`❌ Failed to check emails: ${errorData.detail}`);
+        toast({
+          title: "Error",
+          description: `Failed to check emails: ${errorData.detail}`,
+          variant: "destructive"
+        });
       }
     } catch (error) {
-      setMessage(`❌ Error: ${error.message}`);
+      toast({
+        title: "Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive"
+      });
     } finally {
       setCheckLoading(false);
     }
@@ -155,7 +267,6 @@ function App() {
 
   const testEmail = async () => {
     setCheckLoading(true);
-    setMessage('');
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/test-email`, {
@@ -165,16 +276,31 @@ function App() {
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
-          setMessage(`✅ Test email sent successfully! From: ${result.details.from} → To: ${result.details.to}`);
+          toast({
+            title: "Test Email Sent",
+            description: `Successfully sent from ${result.details.from} to ${result.details.to}`
+          });
         } else {
-          setMessage(`❌ Test email failed: ${result.message}`);
+          toast({
+            title: "Test Failed",
+            description: result.message,
+            variant: "destructive"
+          });
         }
       } else {
         const errorData = await response.json();
-        setMessage(`❌ Failed to send test email: ${errorData.detail}`);
+        toast({
+          title: "Error",
+          description: `Failed to send test email: ${errorData.detail}`,
+          variant: "destructive"
+        });
       }
     } catch (error) {
-      setMessage(`❌ Error: ${error.message}`);
+      toast({
+        title: "Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive"
+      });
     } finally {
       setCheckLoading(false);
     }
@@ -187,15 +313,113 @@ function App() {
       });
 
       if (response.ok) {
-        setMessage('✅ Email cancelled successfully');
+        toast({
+          title: "Success",
+          description: "Email cancelled successfully"
+        });
         fetchScheduledEmails();
-        setTimeout(() => setMessage(''), 3000);
       } else {
         const errorData = await response.json();
-        setMessage(`❌ Failed to cancel email: ${errorData.detail}`);
+        toast({
+          title: "Error",
+          description: `Failed to cancel email: ${errorData.detail}`,
+          variant: "destructive"
+        });
       }
     } catch (error) {
-      setMessage(`❌ Error: ${error.message}`);
+      toast({
+        title: "Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleBulkAction = async (action) => {
+    if (selectedEmails.length === 0) return;
+
+    const actionParts = action.split('_');
+    const actionType = actionParts[0];
+    const actionSubtype = actionParts[1];
+    const actionValue = actionParts[2];
+
+    let requestBody = {
+      email_ids: selectedEmails,
+      action: actionType === 'change' ? `change_${actionSubtype}` : actionType
+    };
+
+    if (actionType === 'change') {
+      requestBody.new_value = actionValue;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/scheduled-emails/bulk-action`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast({
+          title: "Bulk Action Complete",
+          description: result.message
+        });
+        fetchScheduledEmails();
+        setSelectedEmails([]);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: `Bulk action failed: ${errorData.detail}`,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Error: ${error.message}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters.status) queryParams.append('status', filters.status);
+      
+      const response = await fetch(`${API_BASE_URL}/api/scheduled-emails/export?${queryParams}`);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'scheduled_emails.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast({
+          title: "Export Complete",
+          description: "Email data exported successfully"
+        });
+      } else {
+        toast({
+          title: "Export Failed",
+          description: "Failed to export email data",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Export error: ${error.message}`,
+        variant: "destructive"
+      });
     }
   };
 
@@ -203,8 +427,27 @@ function App() {
     setSelectedTemplate(template);
     setEmailSubject(template.subject);
     setEmailMessage(template.message);
-    setMessage(`✅ Template "${template.name}" applied!`);
-    setTimeout(() => setMessage(''), 3000);
+    setCategory(template.category || 'general');
+    toast({
+      title: "Template Applied",
+      description: `"${template.name}" template has been applied`
+    });
+  };
+
+  const handleEmailSelection = (emailId, checked) => {
+    if (checked) {
+      setSelectedEmails([...selectedEmails, emailId]);
+    } else {
+      setSelectedEmails(selectedEmails.filter(id => id !== emailId));
+    }
+  };
+
+  const handleSelectAll = () => {
+    setSelectedEmails(filteredEmails.map(email => email.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedEmails([]);
   };
 
   const getStatusBadge = (status) => {
@@ -276,16 +519,20 @@ function App() {
             Advanced Email Scheduler
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Schedule emails with custom settings, templates, and priority levels. Send from your own email with full control.
+            Schedule emails with custom settings, templates, analytics, and advanced automation features.
           </p>
         </div>
 
-        {/* Tabs Navigation */}
+        {/* Enhanced Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
+            <TabsTrigger value="dashboard" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Dashboard
+            </TabsTrigger>
             <TabsTrigger value="schedule" className="gap-2">
               <Plus className="h-4 w-4" />
-              Schedule Email
+              Schedule
             </TabsTrigger>
             <TabsTrigger value="manage" className="gap-2">
               <Send className="h-4 w-4" />
@@ -295,9 +542,18 @@ function App() {
               <Mail className="h-4 w-4" />
               All Emails ({scheduledEmails.length})
             </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
           </TabsList>
 
-          {/* Schedule Email Tab */}
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard">
+            <Dashboard />
+          </TabsContent>
+
+          {/* Enhanced Schedule Email Tab */}
           <TabsContent value="schedule" className="space-y-8">
             <div className="grid lg:grid-cols-2 gap-8">
               {/* Email Details */}
@@ -359,33 +615,52 @@ function App() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Priority Level</Label>
-                    <Select value={priority} onValueChange={setPriority}>
-                      <SelectTrigger className="bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                            Low Priority
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="normal">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                            Normal Priority
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="high">
-                          <div className="flex items-center gap-2">
-                            <Star className="w-4 h-4 text-red-500" />
-                            High Priority
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Priority Level</Label>
+                      <Select value={priority} onValueChange={setPriority}>
+                        <SelectTrigger className="bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-gray-400"></div>
+                              Low Priority
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="normal">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                              Normal Priority
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="high">
+                            <div className="flex items-center gap-2">
+                              <Star className="w-4 h-4 text-red-500" />
+                              High Priority
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select value={category} onValueChange={setCategory}>
+                        <SelectTrigger className="bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="general">General</SelectItem>
+                          <SelectItem value="business">Business</SelectItem>
+                          <SelectItem value="marketing">Marketing</SelectItem>
+                          <SelectItem value="onboarding">Onboarding</SelectItem>
+                          <SelectItem value="appointments">Appointments</SelectItem>
+                          <SelectItem value="gratitude">Gratitude</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {selectedTemplate && (
@@ -408,83 +683,111 @@ function App() {
                       </div>
                     </div>
                   )}
+
+                  {/* Email Preview */}
+                  <div className="pt-4 border-t">
+                    <EmailPreview
+                      recipientEmail={recipientEmail}
+                      recipientName={recipientName}
+                      subject={emailSubject}
+                      message={emailMessage}
+                      scheduledDateTime={selectedDate && selectedTime ? 
+                        new Date(selectedDate.setHours(selectedTime.split(':')[0], selectedTime.split(':')[1])) : 
+                        null
+                      }
+                      priority={priority}
+                      category={category}
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
               {/* Date & Time Selection */}
-              <Card className="card-glass">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <CalendarIcon className="h-5 w-5 text-green-600" />
-                    Schedule Time
-                  </CardTitle>
-                  <CardDescription>
-                    When should this email be sent?
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Date Picker */}
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <CalendarIcon className="h-4 w-4" />
-                      Select Date
-                    </Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal h-12 bg-background hover:bg-accent"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          disabled={(date) => date < new Date(new Date().toDateString())}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+              <div className="space-y-8">
+                <Card className="card-glass">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3">
+                      <CalendarIcon className="h-5 w-5 text-green-600" />
+                      Schedule Time
+                    </CardTitle>
+                    <CardDescription>
+                      When should this email be sent?
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Date Picker */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4" />
+                        Select Date
+                      </Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal h-12 bg-background hover:bg-accent"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={setSelectedDate}
+                            disabled={(date) => date < new Date(new Date().toDateString())}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
 
-                  {/* Time Picker */}
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      Select Time
-                    </Label>
-                    <Input
-                      type="time"
-                      value={selectedTime}
-                      onChange={(e) => setSelectedTime(e.target.value)}
-                      className="h-12 bg-background"
-                    />
-                  </div>
+                    {/* Time Picker */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        Select Time
+                      </Label>
+                      <Input
+                        type="time"
+                        value={selectedTime}
+                        onChange={(e) => setSelectedTime(e.target.value)}
+                        className="h-12 bg-background"
+                      />
+                    </div>
 
-                  {/* Schedule Button */}
-                  <Button
-                    onClick={scheduleEmail}
-                    disabled={loading}
-                    className="w-full h-14 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium shadow-lg text-lg button-hover-lift"
-                  >
-                    {loading ? (
-                      <>
-                        <RefreshCw className="mr-3 h-5 w-5 animate-spin" />
-                        Scheduling...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-3 h-5 w-5" />
-                        Schedule Email
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
+                    {/* Schedule Button */}
+                    <Button
+                      onClick={scheduleEmail}
+                      disabled={loading}
+                      className="w-full h-14 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium shadow-lg text-lg button-hover-lift"
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="mr-3 h-5 w-5 animate-spin" />
+                          Scheduling...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="mr-3 h-5 w-5" />
+                          Schedule Email
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Recurring Schedule */}
+                <RecurringSchedule
+                  isRecurring={isRecurring}
+                  onRecurringChange={setIsRecurring}
+                  recurringPattern={recurringPattern}
+                  onPatternChange={setRecurringPattern}
+                  recurringEndDate={recurringEndDate}
+                  onEndDateChange={setRecurringEndDate}
+                />
+              </div>
             </div>
           </TabsContent>
 
@@ -565,34 +868,61 @@ function App() {
             </div>
           </TabsContent>
 
-          {/* All Emails Tab */}
-          <TabsContent value="emails">
+          {/* Enhanced All Emails Tab */}
+          <TabsContent value="emails" className="space-y-6">
+            {/* Filters */}
+            <EmailFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              onClearFilters={() => setFilters({ search: '', status: '', priority: '', category: '' })}
+              totalCount={scheduledEmails.length}
+              filteredCount={filteredEmails.length}
+              onExport={handleExport}
+              selectedEmails={selectedEmails}
+              onSelectAll={handleSelectAll}
+              onClearSelection={handleClearSelection}
+              onBulkAction={handleBulkAction}
+            />
+
+            {/* Email List */}
             <Card className="card-glass">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <Mail className="h-5 w-5 text-indigo-600" />
-                  Scheduled Emails ({scheduledEmails.length})
+                  Scheduled Emails ({filteredEmails.length})
                 </CardTitle>
                 <CardDescription>
                   View and manage your scheduled emails
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {scheduledEmails.length === 0 ? (
+                {filteredEmails.length === 0 ? (
                   <div className="text-center py-12">
                     <Mail className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground text-lg">No scheduled emails yet</p>
-                    <p className="text-muted-foreground text-sm">Schedule your first email using the Schedule tab</p>
+                    <p className="text-muted-foreground text-lg">
+                      {scheduledEmails.length === 0 ? 'No scheduled emails yet' : 'No emails match your filters'}
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      {scheduledEmails.length === 0 ? 
+                        'Schedule your first email using the Schedule tab' : 
+                        'Try adjusting your filters to see more results'
+                      }
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {scheduledEmails
+                    {filteredEmails
                       .sort((a, b) => new Date(a.scheduled_datetime) - new Date(b.scheduled_datetime))
                       .map((email) => (
                       <div
                         key={email.id}
-                        className="flex items-center justify-between p-6 border rounded-lg bg-card hover:shadow-md transition-all email-item"
+                        className="flex items-center gap-4 p-6 border rounded-lg bg-card hover:shadow-md transition-all email-item"
                       >
+                        <Checkbox
+                          checked={selectedEmails.includes(email.id)}
+                          onCheckedChange={(checked) => handleEmailSelection(email.id, checked)}
+                        />
+                        
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
                             <h4 className="font-semibold text-foreground">
@@ -600,6 +930,18 @@ function App() {
                             </h4>
                             {getStatusBadge(email.status)}
                             {getPriorityBadge(email.priority)}
+                            {email.category && (
+                              <Badge variant="outline" className="capitalize">
+                                <Tags className="h-3 w-3 mr-1" />
+                                {email.category}
+                              </Badge>
+                            )}
+                            {email.is_recurring && (
+                              <Badge variant="secondary">
+                                <Repeat className="h-3 w-3 mr-1" />
+                                Recurring
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-sm text-muted-foreground space-y-2">
                             <div className="flex items-center gap-2">
@@ -623,16 +965,28 @@ function App() {
                           </div>
                         </div>
                         
-                        {email.status === 'pending' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => cancelEmail(email.id)}
-                            className="ml-4 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <EmailPreview
+                            recipientEmail={email.recipient_email}
+                            recipientName={email.recipient_name}
+                            subject={email.subject}
+                            message={email.message}
+                            scheduledDateTime={email.scheduled_datetime}
+                            priority={email.priority}
+                            category={email.category}
+                          />
+                          
+                          {email.status === 'pending' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => cancelEmail(email.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -640,19 +994,14 @@ function App() {
               </CardContent>
             </Card>
           </TabsContent>
-        </Tabs>
 
-        {/* Global Message Display */}
-        {message && (
-          <div className={`fixed bottom-4 right-4 p-4 rounded-lg border shadow-lg max-w-md z-50 ${
-            message.includes('✅') 
-              ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200' 
-              : 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200'
-          }`}>
-            <p className="text-sm font-medium">{message}</p>
-          </div>
-        )}
+          {/* Analytics Tab */}
+          <TabsContent value="analytics">
+            <Dashboard />
+          </TabsContent>
+        </Tabs>
       </div>
+      <Toaster />
     </div>
   );
 }
