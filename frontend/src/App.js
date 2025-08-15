@@ -32,7 +32,7 @@ import { EmailSettings } from './components/EmailSettings';
 import { EmailTemplates } from './components/EmailTemplates';
 import './App.css';
 
-const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 function App() {
   // Form state
