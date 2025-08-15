@@ -314,36 +314,54 @@ Send a test email with current settings
 ## 🎨 Usage Guide
 
 ### **1. Initial Setup**
-1. **Configure Email Settings**: Click "Email Settings" and enter your Gmail credentials
-2. **Test Configuration**: Use "Send Test Email" to verify your setup
-3. **Create Templates**: Set up commonly used email templates
+1. **Start Services**: Use `sudo supervisorctl restart all` to start all services
+2. **Access Application**: Navigate to `http://localhost:3000`
+3. **Configure Email Settings**: Click "Email Settings" and enter your Gmail credentials
+4. **Test Configuration**: Use "Send Test Email" to verify your setup works
+5. **Explore Templates**: Click "Templates" to view pre-loaded templates or create custom ones
 
 ### **2. Scheduling Emails**
 1. **Navigate to Schedule Tab**: Use the tabbed interface
-2. **Fill Email Details**: Enter recipient, subject, and message
-3. **Set Priority**: Choose Low, Normal, or High priority
-4. **Select Date & Time**: Use the calendar and time picker
-5. **Apply Template** (optional): Use saved templates for quick setup
+2. **Fill Email Details**: Enter recipient email, name (optional), subject, and message
+3. **Set Priority**: Choose Low, Normal, or High priority (affects sending order)
+4. **Select Date & Time**: Use the calendar picker and time input
+5. **Apply Template** (optional): Select from 6+ pre-loaded templates or your custom ones
 6. **Schedule**: Click "Schedule Email" to save
 
 ### **3. Managing Emails**
 1. **Send & Manage Tab**: Manually trigger sending of due emails
-2. **All Emails Tab**: View, filter, and manage all scheduled emails
+2. **All Emails Tab**: View, filter, and manage all scheduled emails with real-time status
 3. **Cancel Pending**: Remove emails that haven't been sent yet
-4. **Track Status**: Monitor sent, failed, and pending emails
+4. **Track Status**: Monitor sent, failed, and pending emails with timestamps
 
-### **4. Templates**
-1. **Create Template**: Click "Templates" → "New Template"
-2. **Apply Template**: Select template when scheduling emails
-3. **Manage Templates**: Edit, delete, or organize your templates
+### **4. Templates Management**
+1. **View Templates**: Click "Templates" to see all available templates
+2. **Pre-loaded Templates**: 6 professional templates ready to use:
+   - Welcome Email
+   - Meeting Reminder  
+   - Thank You Note
+   - Follow-up Email
+   - Appointment Confirmation
+   - Newsletter Template
+3. **Create Custom**: Click "New Template" to create your own
+4. **Apply Templates**: Select templates when scheduling emails for quick setup
+5. **Delete Templates**: Remove custom templates (default templates are protected)
 
-## 🌙 Dark Mode
+## 🌙 Dark Mode & Accessibility
 
-The application features a beautiful dark/light mode toggle:
+The application features comprehensive theme support:
 - **Automatic Detection**: Respects system theme preference
 - **Manual Toggle**: Click the theme toggle button in the header
 - **Smooth Transitions**: Seamless switching between themes
 - **Persistent Setting**: Theme preference is saved locally
+- **High Contrast**: Optimized colors for better visibility and accessibility
+- **Enhanced Text Selection**: Proper contrast for selected text in both themes
+
+### **Accessibility Features**
+- **Screen Reader Support**: Full ARIA labels and semantic HTML
+- **Keyboard Navigation**: Complete keyboard accessibility
+- **High Contrast Mode**: Enhanced visibility for users with visual impairments
+- **Focus Indicators**: Clear focus management and visual indicators
 
 ## 🔒 Security Features
 
@@ -352,6 +370,69 @@ The application features a beautiful dark/light mode toggle:
 - **CORS Protection**: Proper cross-origin resource sharing configuration
 - **Error Handling**: Secure error messages without sensitive information exposure
 - **App Password Authentication**: Uses Gmail App Passwords instead of account passwords
+- **Environment Variable Protection**: Secure environment configuration with fallbacks
+
+## 🛠️ Development & Deployment
+
+### **Development Setup**
+```bash
+# Clone repository
+git clone https://github.com/bazhdarrzgar/email_send.git
+cd email_send
+
+# Install dependencies
+cd backend && pip install -r requirements.txt
+cd ../frontend && yarn install
+
+# Start with supervisor (recommended)
+sudo supervisorctl restart all
+
+# Or start manually
+# Terminal 1: cd backend && python server.py
+# Terminal 2: cd frontend && yarn start
+```
+
+### **Service Management**
+```bash
+# Check all services status
+sudo supervisorctl status
+
+# Restart all services
+sudo supervisorctl restart all
+
+# Individual service control
+sudo supervisorctl restart backend
+sudo supervisorctl restart frontend
+sudo supervisorctl restart mongodb
+
+# View logs
+tail -f /var/log/supervisor/backend.out.log
+tail -f /var/log/supervisor/frontend.out.log
+```
+
+### **Environment Configuration**
+
+#### Backend Environment (`/backend/.env`)
+```env
+MONGO_URL=mongodb://localhost:27017
+DB_NAME=test_database
+CORS_ORIGINS=*
+```
+
+#### Frontend Environment (`/frontend/.env`)
+```env
+REACT_APP_BACKEND_URL=http://localhost:8001
+WDS_SOCKET_PORT=443
+```
+
+### **Production Deployment**
+1. **Build Frontend**: `cd frontend && yarn build`
+2. **Configure Database**: Set up MongoDB Atlas or local MongoDB with proper security
+3. **Deploy Backend**: Deploy FastAPI application with proper WSGI server
+4. **Deploy Frontend**: Serve built React application with nginx or similar
+5. **Configure CORS**: Update CORS_ORIGINS for production domains
+6. **Set Environment Variables**: Configure production environment variables
+7. **Enable HTTPS**: Set up SSL certificates for secure communication
 
 ## 📊 Database Schema
 
@@ -402,28 +483,46 @@ The application features a beautiful dark/light mode toggle:
 }
 ```
 
-## 🚀 Deployment
+## 🔧 Troubleshooting
 
-### **Environment Variables**
+### **Common Issues**
 
-#### Backend (.env)
-```env
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=scheduled_email_db
-CORS_ORIGINS=*
+#### Templates Not Loading
+- **Solution**: Templates now have fallback URL configuration - restart frontend service
+- **Command**: `sudo supervisorctl restart frontend`
+
+#### Logo Not Visible in Light Mode  
+- **Solution**: Fixed with enhanced contrast gradient
+- **Status**: ✅ Resolved in v2.0.1
+
+#### Text Selection Issues
+- **Solution**: Improved selection colors for both themes
+- **Status**: ✅ Resolved in v2.0.1
+
+#### Backend Connection Issues
+- **Check Backend**: `curl http://localhost:8001/api/health`
+- **Check Frontend**: `curl http://localhost:3000`
+- **Restart Services**: `sudo supervisorctl restart all`
+
+#### Email Sending Failures
+1. Verify Gmail App Password is correct (16 characters)
+2. Ensure 2-Factor Authentication is enabled on Gmail
+3. Test with "Send Test Email" feature first
+4. Check backend logs: `tail -f /var/log/supervisor/backend.out.log`
+
+### **Logs and Debugging**
+```bash
+# Backend logs
+tail -f /var/log/supervisor/backend.out.log
+tail -f /var/log/supervisor/backend.err.log
+
+# Frontend logs  
+tail -f /var/log/supervisor/frontend.out.log
+tail -f /var/log/supervisor/frontend.err.log
+
+# MongoDB logs
+tail -f /var/log/supervisor/mongodb.out.log
 ```
-
-#### Frontend (.env)
-```env
-REACT_APP_BACKEND_URL=https://your-backend-url.com
-```
-
-### **Production Deployment**
-1. **Build Frontend**: `yarn build`
-2. **Configure Database**: Set up MongoDB Atlas or local MongoDB
-3. **Deploy Backend**: Deploy FastAPI application
-4. **Deploy Frontend**: Serve built React application
-5. **Configure CORS**: Update CORS_ORIGINS for production domains
 
 ## 🤝 Contributing
 
@@ -433,6 +532,14 @@ REACT_APP_BACKEND_URL=https://your-backend-url.com
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+### **Development Guidelines**
+- Follow React 19 best practices
+- Use TypeScript for new components when possible
+- Maintain accessibility standards (WCAG 2.1)
+- Test in both light and dark modes
+- Ensure mobile responsiveness
+- Add proper error handling and validation
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -441,12 +548,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you encounter any issues or have questions:
 
-1. Check the [Issues](https://github.com/your-username/advanced-email-scheduler/issues) page
+1. Check the [Issues](https://github.com/bazhdarrzgar/email_send/issues) page
 2. Create a new issue with detailed information
 3. Include error logs and system information
+4. Specify your operating system and browser version
 
 ## 🎯 Roadmap
 
+### **Completed in v2.0.1**
+- [x] **Enhanced UI Visibility** - Fixed logo and text selection issues
+- [x] **Reliable Template Loading** - Added fallback mechanisms
+- [x] **Improved Error Handling** - Better error messages and debugging
+- [x] **Supervisor Integration** - Automated service management
+
+### **Upcoming Features**
 - [ ] **Email Scheduling Automation** - Cron job for automatic email sending
 - [ ] **Email Analytics Dashboard** - Detailed statistics and reporting  
 - [ ] **Multiple Email Providers** - Support for Outlook, Yahoo, and custom SMTP
@@ -457,9 +572,27 @@ If you encounter any issues or have questions:
 - [ ] **Email Attachments** - File attachment support
 - [ ] **Rich Text Editor** - HTML email composition
 - [ ] **Webhook Integration** - External service notifications
+- [ ] **Mobile App** - Native mobile application
+- [ ] **Email Templates Editor** - Visual template designer
+
+## 📈 Version History
+
+### **v2.0.1** (Current)
+- Enhanced logo visibility in light mode
+- Fixed text selection colors for better readability
+- Improved template loading with fallback mechanisms
+- Added comprehensive error handling and debugging
+- Updated documentation and troubleshooting guide
+
+### **v2.0.0**
+- Initial release with React 19 and modern UI
+- Full email scheduling functionality
+- Template management system
+- Dark/light mode support
+- Gmail integration with App Password support
 
 ---
 
-**Made with ❤️ by [Your Name]**
+**Built with ❤️ using React 19, FastAPI, and MongoDB**
 
-*Star ⭐ this repository if you find it helpful!*
+*⭐ Star this repository if you find it helpful!*
