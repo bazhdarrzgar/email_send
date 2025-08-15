@@ -428,6 +428,15 @@ async def delete_email_template(template_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete template: {str(e)}")
 
+@app.post("/api/email-templates/initialize-defaults")
+async def initialize_default_templates_endpoint():
+    """Initialize default email templates (can be called to reset templates)"""
+    try:
+        await initialize_default_templates()
+        return {"message": "Default templates initialized successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to initialize default templates: {str(e)}")
+
 # Enhanced Email Scheduling
 @app.post("/api/schedule-email", response_model=ScheduledEmailResponse)
 async def schedule_email(request: ScheduleEmailRequest):
