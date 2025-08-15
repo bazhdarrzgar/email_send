@@ -33,12 +33,9 @@ export function EmailTemplates({ onSelectTemplate }) {
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      console.log('Fetching templates from:', `${API_BASE_URL}/api/email-templates`);
       const response = await fetch(`${API_BASE_URL}/api/email-templates`);
-      console.log('Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log('Templates data:', data);
         setTemplates(data);
       } else {
         const errorText = await response.text();
