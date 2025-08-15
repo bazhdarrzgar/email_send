@@ -262,7 +262,7 @@ function App() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex-1"></div>
             <div className="flex items-center justify-center">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
+              <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-700 dark:from-blue-500 dark:to-indigo-600 rounded-2xl shadow-lg border border-blue-200 dark:border-blue-800">
                 <Mail className="h-8 w-8 text-white" />
               </div>
             </div>
