@@ -9,7 +9,7 @@ import { FileText, Plus, Trash2, RefreshCw, Save } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 
-const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 export function EmailTemplates({ onSelectTemplate }) {
   const [open, setOpen] = useState(false);
