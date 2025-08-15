@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Settings, Mail, Key, User, Server, RefreshCw, Save, AlertCircle } from 'lucide-react';
 import { Separator } from './ui/separator';
 
-const API_BASE_URL = process.env.REACT_APP_BACKEND_URL;
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 export function EmailSettings() {
   const [open, setOpen] = useState(false);
