@@ -3,16 +3,18 @@
 A powerful, modern web application for scheduling emails with advanced features like custom email configuration, templates, priority levels, and dark/light mode support.
 
 ![Email Scheduler](https://img.shields.io/badge/Status-Production%20Ready-green)
-![Version](https://img.shields.io/badge/Version-2.0.0-blue)
-![Tech Stack](https://img.shields.io/badge/Tech-React%20%7C%20FastAPI%20%7C%20MongoDB-orange)
+![Version](https://img.shields.io/badge/Version-2.0.1-blue)
+![Tech Stack](https://img.shields.io/badge/Tech-React%2019%20%7C%20FastAPI%20%7C%20MongoDB-orange)
 
 ## 🌟 Features
 
 ### 📱 **Modern User Interface**
-- **🌙 Dark/Light Mode Toggle** - Beautiful theme switching with smooth transitions
+- **🌙 Dark/Light Mode Toggle** - Beautiful theme switching with smooth transitions and optimized visibility
 - **📑 Tabbed Navigation** - Organized interface with Schedule, Send & Manage, and All Emails tabs
 - **🎨 Glass-morphism Design** - Modern UI with backdrop blur effects and gradient backgrounds
 - **📱 Responsive Design** - Works seamlessly across desktop, tablet, and mobile devices
+- **✨ Enhanced Text Selection** - Optimized text selection colors for better readability in both themes
+- **🎯 Improved Logo Visibility** - High-contrast logo design that stands out in both light and dark modes
 
 ### ⚙️ **Custom Email Configuration**
 - **📧 Personal Gmail Integration** - Use your own Gmail account for sending emails
@@ -26,6 +28,7 @@ A powerful, modern web application for scheduling emails with advanced features 
 - **⚡ Quick Apply** - One-click template application to new emails
 - **🗂️ Template Management** - Create, edit, view, and delete templates
 - **🎯 Smart Organization** - Organized template storage with creation dates
+- **🔄 Reliable Loading** - Enhanced template loading with fallback mechanisms
 
 ### 🎯 **Enhanced Email Scheduling**
 - **👥 Custom Recipients** - Set both email address and display name
@@ -40,15 +43,17 @@ A powerful, modern web application for scheduling emails with advanced features 
 - **🔄 Bulk Operations** - Send multiple due emails at once
 - **🧪 Test Functionality** - Send test emails to verify your configuration
 - **⚡ Real-time Updates** - Live status updates and notifications
+- **🛠️ Supervisor Integration** - Automated service management for reliable operation
 
 ## 🛠️ Tech Stack
 
 ### **Frontend**
 - **React 19** - Modern React with hooks and context
-- **Tailwind CSS** - Utility-first CSS framework with dark mode support
+- **Tailwind CSS** - Utility-first CSS framework with enhanced dark mode support
 - **Radix UI** - Accessible, unstyled UI components
 - **Lucide React** - Beautiful, customizable icons
 - **date-fns** - Modern JavaScript date utility library
+- **CRACO** - Create React App Configuration Override for advanced customization
 
 ### **Backend**
 - **FastAPI** - High-performance Python web framework
@@ -56,20 +61,26 @@ A powerful, modern web application for scheduling emails with advanced features 
 - **Motor** - Async MongoDB driver for Python
 - **Pydantic** - Data validation using Python type annotations
 - **SMTP** - Email sending via Gmail SMTP servers
+- **Supervisor** - Process management for reliable service operation
+
+### **Infrastructure**
+- **Docker/Container Ready** - Optimized for containerized deployment
+- **Environment Configuration** - Secure environment variable management
+- **CORS Support** - Cross-origin resource sharing properly configured
 
 ## 📋 Prerequisites
 
-- **Node.js** (v16 or higher)
+- **Node.js** (v16 or higher) with **Yarn** package manager
 - **Python** (v3.8 or higher)
 - **MongoDB** (local or cloud instance)
-- **Gmail Account** with App Password enabled
+- **Gmail Account** with App Password enabled (for email sending)
 
 ## 🚀 Quick Start
 
 ### 1. **Clone the Repository**
 ```bash
-git clone https://github.com/your-username/advanced-email-scheduler.git
-cd advanced-email-scheduler
+git clone https://github.com/bazhdarrzgar/email_send.git
+cd email_send
 ```
 
 ### 2. **Backend Setup**
@@ -80,12 +91,9 @@ cd backend
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Create environment file
-cp .env.example .env
-
-# Edit .env file with your MongoDB URL
+# Environment file already configured
 # MONGO_URL="mongodb://localhost:27017"
-# DB_NAME="scheduled_email_db"
+# DB_NAME="test_database"
 ```
 
 ### 3. **Frontend Setup**
@@ -93,17 +101,27 @@ cp .env.example .env
 # Navigate to frontend directory
 cd frontend
 
-# Install Node.js dependencies
+# Install Node.js dependencies using Yarn
 yarn install
 
-# Create environment file
-cp .env.example .env
-
-# Edit .env file with your backend URL
+# Environment file already configured
 # REACT_APP_BACKEND_URL=http://localhost:8001
 ```
 
-### 4. **Start the Application**
+### 4. **Start the Application with Supervisor**
+```bash
+# Start all services (recommended)
+sudo supervisorctl restart all
+
+# Check service status
+sudo supervisorctl status
+
+# Individual service management
+sudo supervisorctl restart backend
+sudo supervisorctl restart frontend
+```
+
+### 5. **Manual Start (Alternative)**
 ```bash
 # Start MongoDB (if running locally)
 mongod
@@ -115,7 +133,10 @@ python server.py
 yarn start
 ```
 
-The application will be available at `http://localhost:3000`
+**Application URLs:**
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:8001`
+- **API Documentation**: `http://localhost:8001/docs`
 
 ## 📧 Gmail Setup Guide
 
@@ -136,8 +157,35 @@ To use your own Gmail account for sending emails:
 3. Enter your display name (optional)
 4. Paste the 16-character App Password
 5. Save settings
+6. Use "Send Test Email" to verify your configuration
+
+## 🎨 User Interface Highlights
+
+### **Enhanced Visual Design**
+- **Optimized Logo**: High-contrast logo with proper visibility in both light and dark themes
+- **Better Text Selection**: Improved text selection colors for enhanced readability
+- **Smooth Transitions**: Seamless theme switching with visual feedback
+- **Glass-morphism Cards**: Modern card design with backdrop blur effects
+- **Responsive Layout**: Mobile-first design that works on all screen sizes
+
+### **Accessibility Features**
+- **High Contrast**: Optimized color schemes for better accessibility
+- **Keyboard Navigation**: Full keyboard accessibility support
+- **Screen Reader Friendly**: Proper ARIA labels and semantic HTML
+- **Focus Management**: Clear focus indicators and logical tab order
 
 ## 🔧 API Documentation
+
+### **Health Check**
+#### `GET /api/health`
+Check API service health
+```json
+{
+  "status": "healthy", 
+  "service": "advanced-scheduled-email-api", 
+  "version": "2.0.0"
+}
+```
 
 ### **Email Settings Endpoints**
 
@@ -178,7 +226,7 @@ Create a new email template
 ```
 
 #### `GET /api/email-templates`
-Get all email templates
+Get all email templates (includes 6 pre-loaded templates)
 ```json
 [
   {
@@ -187,13 +235,16 @@ Get all email templates
     "subject": "Welcome to our service!",
     "message": "Thank you for joining us...",
     "created_at": "2025-08-15T07:45:01Z",
-    "is_default": false
+    "is_default": true
   }
 ]
 ```
 
 #### `DELETE /api/email-templates/{template_id}`
 Delete a specific template
+
+#### `POST /api/email-templates/initialize-defaults`
+Initialize default email templates
 
 ### **Enhanced Email Scheduling**
 
@@ -230,10 +281,13 @@ Get all scheduled emails with enhanced data
 ]
 ```
 
+#### `DELETE /api/scheduled-emails/{email_id}`
+Cancel a scheduled email (only if status is pending)
+
 ### **Email Operations**
 
 #### `POST /api/check-send-emails`
-Check and send due emails (prioritized)
+Check and send due emails (prioritized by high > normal > low)
 ```json
 {
   "checked_count": 5,
