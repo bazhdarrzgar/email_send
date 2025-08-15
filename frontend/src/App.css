@@ -1,4 +1,4 @@
-/* Custom styles for Scheduled Email App */
+/* Custom styles for Advanced Email Scheduler */
 
 /* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -21,50 +21,72 @@ body {
   min-height: 100vh;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - Enhanced for dark mode */
 ::-webkit-scrollbar {
   width: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: hsl(var(--secondary));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: hsl(var(--border));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: hsl(var(--muted-foreground));
 }
 
-/* Enhanced gradients and backgrounds */
+/* Enhanced gradients and backgrounds with better dark mode support */
 .bg-gradient-to-br {
   background: linear-gradient(
     135deg,
-    #f8fafc 0%,
-    #e0f2fe 25%,
-    #e0e7ff 50%,
-    #f1f5f9 100%
+    hsl(210, 40%, 98%) 0%,
+    hsl(210, 40%, 96%) 25%,
+    hsl(217, 71%, 95%) 50%,
+    hsl(210, 40%, 94%) 100%
   );
 }
 
-/* Custom button hover effects */
+.dark .bg-gradient-to-br {
+  background: linear-gradient(
+    135deg,
+    hsl(224, 71%, 4%) 0%,
+    hsl(215, 28%, 17%) 25%,
+    hsl(215, 25%, 19%) 50%,
+    hsl(215, 20%, 21%) 100%
+  );
+}
+
+/* Custom button hover effects with dark mode support */
 .button-hover-lift {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .button-hover-lift:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.15), 0 8px 10px -6px rgba(59, 130, 246, 0.1);
 }
 
-/* Card enhancements */
+.dark .button-hover-lift:hover {
+  box-shadow: 0 10px 25px -5px rgba(96, 165, 250, 0.2), 0 8px 10px -6px rgba(96, 165, 250, 0.15);
+}
+
+/* Card enhancements with better dark mode */
 .card-glass {
-  background: rgba(255, 255, 255, 0.85);
+  background: hsla(var(--card), 0.95);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid hsla(var(--border), 0.5);
+  box-shadow: 0 8px 32px hsla(var(--foreground), 0.1);
+}
+
+.dark .card-glass {
+  background: hsla(var(--card), 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid hsla(var(--border), 0.3);
+  box-shadow: 0 8px 32px hsla(0, 0%, 0%, 0.3);
 }
 
 /* Animation for status badges */
@@ -84,27 +106,31 @@ body {
 /* Enhanced focus states */
 .focus-ring:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px hsla(var(--primary), 0.3);
+  border-color: hsl(var(--primary));
 }
 
-/* Calendar customizations */
+/* Calendar customizations with dark mode */
 .rdp {
   margin: 0;
 }
 
 .rdp-day_selected {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
-  color: white !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
 }
 
 .rdp-day_selected:hover {
-  background: linear-gradient(135deg, #2563eb, #1e40af) !important;
+  background: hsl(var(--primary)) !important;
+  opacity: 0.9;
 }
 
-/* Time input styling */
+/* Time input styling with dark mode support */
 input[type="time"] {
   cursor: pointer;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
 }
 
 input[type="time"]::-webkit-calendar-picker-indicator {
@@ -114,6 +140,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 input[type="time"]::-webkit-calendar-picker-indicator:hover {
   filter: opacity(1);
+}
+
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.6);
+}
+
+.dark input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1) opacity(1);
 }
 
 /* Loading spinner enhancement */
@@ -137,91 +171,129 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   transition-duration: 200ms;
 }
 
-/* Enhanced shadows */
+/* Enhanced shadows with dark mode */
 .shadow-xl-enhanced {
   box-shadow: 
-    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 20px 25px -5px hsla(var(--foreground), 0.1),
+    0 10px 10px -5px hsla(var(--foreground), 0.04),
+    0 0 0 1px hsla(var(--background), 0.05);
 }
 
-/* Message styling */
+.dark .shadow-xl-enhanced {
+  box-shadow: 
+    0 20px 25px -5px hsla(0, 0%, 0%, 0.4),
+    0 10px 10px -5px hsla(0, 0%, 0%, 0.3),
+    0 0 0 1px hsla(var(--foreground), 0.1);
+}
+
+/* Message styling with dark mode */
 .message-success {
-  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
-  border-color: #10b981;
-  color: #065f46;
+  background: linear-gradient(135deg, hsl(142, 76%, 91%), hsl(141, 84%, 85%));
+  border-color: hsl(142, 76%, 36%);
+  color: hsl(142, 76%, 20%);
+}
+
+.dark .message-success {
+  background: linear-gradient(135deg, hsl(142, 76%, 15%), hsl(141, 84%, 20%));
+  border-color: hsl(142, 76%, 50%);
+  color: hsl(142, 76%, 80%);
 }
 
 .message-error {
-  background: linear-gradient(135deg, #fef2f2, #fecaca);
-  border-color: #ef4444;
-  color: #991b1b;
+  background: linear-gradient(135deg, hsl(0, 86%, 95%), hsl(0, 84%, 90%));
+  border-color: hsl(0, 84%, 60%);
+  color: hsl(0, 84%, 25%);
+}
+
+.dark .message-error {
+  background: linear-gradient(135deg, hsl(0, 86%, 15%), hsl(0, 84%, 20%));
+  border-color: hsl(0, 84%, 65%);
+  color: hsl(0, 84%, 85%);
 }
 
 .message-info {
-  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
-  border-color: #3b82f6;
-  color: #1e40af;
+  background: linear-gradient(135deg, hsl(221, 91%, 91%), hsl(217, 91%, 85%));
+  border-color: hsl(221, 83%, 53%);
+  color: hsl(221, 83%, 25%);
 }
 
-/* Responsive design improvements */
-@media (max-width: 768px) {
-  .container {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-  
-  .grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-  
-  h1 {
-    font-size: 2.25rem;
-  }
-  
-  .card {
-    margin: 0.5rem;
-  }
+.dark .message-info {
+  background: linear-gradient(135deg, hsl(221, 91%, 15%), hsl(217, 91%, 20%));
+  border-color: hsl(221, 83%, 65%);
+  color: hsl(221, 83%, 85%);
 }
 
-/* Email list item hover effects */
+/* Email list item hover effects with dark mode */
 .email-item {
   transition: all 0.2s ease-in-out;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 
 .email-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 25px -5px hsla(var(--foreground), 0.1);
+  border-color: hsl(var(--border));
 }
 
-/* Custom badge variants */
+.dark .email-item {
+  background: hsla(var(--card), 0.8);
+  border: 1px solid hsla(var(--border), 0.3);
+}
+
+.dark .email-item:hover {
+  background: hsla(var(--card), 0.9);
+  box-shadow: 0 8px 25px -5px hsla(0, 0%, 0%, 0.3);
+  border-color: hsla(var(--border), 0.5);
+}
+
+/* Custom badge variants with dark mode */
 .badge-pending {
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
-  color: #92400e;
-  border-color: #f59e0b;
+  background: linear-gradient(135deg, hsl(45, 93%, 89%), hsl(43, 96%, 84%));
+  color: hsl(45, 93%, 25%);
+  border-color: hsl(43, 96%, 56%);
+}
+
+.dark .badge-pending {
+  background: linear-gradient(135deg, hsl(45, 93%, 15%), hsl(43, 96%, 20%));
+  color: hsl(45, 93%, 75%);
+  border-color: hsl(43, 96%, 56%);
 }
 
 .badge-sent {
-  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
-  color: #065f46;
-  border-color: #10b981;
+  background: linear-gradient(135deg, hsl(142, 76%, 91%), hsl(141, 84%, 85%));
+  color: hsl(142, 76%, 20%);
+  border-color: hsl(142, 76%, 36%);
+}
+
+.dark .badge-sent {
+  background: linear-gradient(135deg, hsl(142, 76%, 15%), hsl(141, 84%, 20%));
+  color: hsl(142, 76%, 80%);
+  border-color: hsl(142, 76%, 50%);
 }
 
 .badge-failed {
-  background: linear-gradient(135deg, #fef2f2, #fecaca);
-  color: #991b1b;
-  border-color: #ef4444;
+  background: linear-gradient(135deg, hsl(0, 86%, 95%), hsl(0, 84%, 90%));
+  color: hsl(0, 84%, 25%);
+  border-color: hsl(0, 84%, 60%);
+}
+
+.dark .badge-failed {
+  background: linear-gradient(135deg, hsl(0, 86%, 15%), hsl(0, 84%, 20%));
+  color: hsl(0, 84%, 85%);
+  border-color: hsl(0, 84%, 65%);
 }
 
 /* Enhanced typography */
 h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   letter-spacing: -0.025em;
+  color: hsl(var(--foreground));
 }
 
 p {
   line-height: 1.6;
+  color: hsl(var(--foreground));
 }
 
 /* Button group styling */
@@ -234,7 +306,7 @@ p {
   flex: 1;
 }
 
-/* Status indicator */
+/* Status indicator with dark mode */
 .status-indicator {
   display: inline-flex;
   align-items: center;
@@ -263,8 +335,29 @@ p {
   transform: scale(0.98);
 }
 
-/* Custom selection color */
+/* Custom selection color with dark mode */
 ::selection {
-  background: rgba(59, 130, 246, 0.2);
-  color: #1e40af;
+  background: hsla(var(--primary), 0.2);
+  color: hsl(var(--primary-foreground));
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  h1 {
+    font-size: 2.25rem;
+  }
+  
+  .card {
+    margin: 0.5rem;
+  }
 }
